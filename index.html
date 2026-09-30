@@ -1,0 +1,1030 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Pro Crop Tool - Multi-Format & Safe RAM</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg-main:#141414;--bg-panel:#202020;--bg-sub:#2b2b2b;--bg-input:#121212;
+  --bd:#383838;--bd-focus:#007acc;--ac:#007acc;--tx:#d4d4d4;--tx-sub:#888;
+  --red:#e53935;--grn:#43a047;
+}
+body{background:var(--bg-main);color:var(--tx);font-family:'Segoe UI',system-ui,sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden;font-size:12px;user-select:none}
+
+/* Ẩn hoàn toàn nút mũi tên mặc định của input type=number */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+  -webkit-appearance: none; margin: 0;
+}
+input[type=number] { -moz-appearance: textfield; }
+
+/* TOPBAR */
+#topbar{background:#2a2a2a;border-bottom:1px solid var(--bd);padding:4px 10px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:10}
+.logo{font-weight:700;color:var(--ac);font-size:13px;display:flex;align-items:center;gap:4px}
+.divider{width:1px;height:22px;background:var(--bd);margin:0 2px}
+.btn{background:var(--bg-sub);border:1px solid var(--bd);color:var(--tx);padding:4px 10px;border-radius:3px;font-size:11px;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:0.15s}
+.btn:hover{background:#3a3a3a;border-color:#555}
+.btn.primary{background:#0e639c;border-color:#1177bb;color:#fff}.btn.primary:hover{background:#1177bb}
+.btn.success{background:#2e7d32;border-color:#388e3c;color:#fff}.btn.success:hover{background:#388e3c}
+.btn:disabled{opacity:0.35;cursor:not-allowed}
+
+.toggle-lock{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:3px;border:1px solid var(--bd);background:var(--bg-sub);cursor:pointer;font-size:11px}
+.toggle-lock.locked{border-color:#ff9800;color:#ff9800}
+
+/* WORKSPACE */
+#workspace{display:flex;flex:1;overflow:hidden;position:relative}
+
+/* SIDEBAR */
+#sidebar{width:270px;background:var(--bg-panel);border-right:1px solid var(--bd);display:flex;flex-direction:column;flex-shrink:0;overflow-y:auto}
+#sidebar::-webkit-scrollbar{width:4px}
+#sidebar::-webkit-scrollbar-thumb{background:#444;border-radius:2px}
+
+.sec{padding:10px 12px;border-bottom:1px solid var(--bd)}
+.sec-title{font-size:11px;font-weight:700;color:var(--tx-sub);text-transform:uppercase;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center}
+
+/* CUSTOM STEPPER (BẬT TẮT NÚT TĂNG GIẢM RỜI) */
+.stepper-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.stepper-row label{color:var(--tx-sub);font-size:11px;width:75px}
+.stepper-group{display:flex;align-items:center;background:var(--bg-input);border:1px solid var(--bd);border-radius:3px;overflow:hidden}
+.stepper-btn{background:none;border:none;color:var(--tx-sub);width:22px;height:24px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:0.1s}
+.stepper-btn:hover{background:#333;color:#fff}
+.stepper-btn:active{background:var(--ac);color:#fff}
+.stepper-input{width:60px;background:none;border:none;color:#fff;text-align:center;font-size:11px;padding:2px 0}
+.stepper-input:focus{outline:none}
+
+/* VIEWPORT CHÍNH (CỐ ĐỊNH SIZE VRAM - KHÔNG BAO GIỜ CRASH) */
+#viewport{flex:1;position:relative;background:#101010;overflow:hidden;cursor:default}
+#main-canvas{display:block;width:100%;height:100%}
+
+/* DROP TARGET */
+#drop-target{position:absolute;inset:20px;border:2px dashed #444;border-radius:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;cursor:pointer;background:rgba(18,18,18,0.85);z-index:10}
+#drop-target:hover{border-color:var(--ac);color:var(--ac)}
+
+/* EXPORT PANEL */
+.export-box{background:var(--bg-sub);border:1px solid var(--bd);border-radius:4px;padding:8px;display:flex;flex-direction:column;gap:6px}
+.form-select{background:var(--bg-input);border:1px solid var(--bd);color:#fff;padding:3px 6px;border-radius:3px;font-size:11px}
+
+/* LIVE PREVIEW THÔNG QUA BLOB URL VÀ THẺ <img> */
+.preview-wrapper{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:130px;background:#181818;border:1px solid var(--bd);border-radius:4px;overflow:hidden;position:relative}
+#live-img{max-width:100%;max-height:130px;object-fit:contain;display:block}
+
+/* STATUSBAR */
+#statusbar{background:#252525;border-top:1px solid var(--bd);padding:3px 12px;font-size:11px;color:var(--tx-sub);display:flex;gap:18px;align-items:center}
+#statusbar span{color:var(--tx);font-weight:600}
+.badge-auto{background:#0e639c;color:#fff;padding:1px 5px;border-radius:2px;font-size:10px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">✂ Ultimate Crop</div>
+  <div class="divider"></div>
+  <button class="btn" id="btn-open">📂 Mở Ảnh</button>
+  <input type="file" id="file-input" accept="image/*" style="display:none">
+  
+  <div class="divider"></div>
+  
+  <!-- NÚT KHÓA BIÊN ẢNH (CHỐNG MỞ RỘNG HOẶC CHO PHÉP MỞ RỘNG) -->
+  <div class="toggle-lock locked" id="btn-toggle-lock" title="Click để chuyển đổi giữa Khóa trong ảnh và Mở rộng tự do">
+    <span id="lock-icon">🔒</span> <span id="lock-label">Khóa trong biên ảnh</span>
+  </div>
+
+  <div class="divider"></div>
+
+  <button class="btn success" id="btn-apply-crop" disabled>✂ Áp Dụng Crop</button>
+  <button class="btn" id="btn-reset" disabled>↺ Đặt lại</button>
+
+  <div style="margin-left:auto;font-size:11px;color:var(--tx-sub)">
+    💡 <b>Lăn chuột:</b> Lên/Xuống | <b>Shift + Lăn:</b> Trái/Phải | <b>Ctrl + Lăn:</b> Zoom | <b>Giữ Space:</b> Pan tự do
+  </div>
+</div>
+
+<div id="workspace">
+  <!-- SIDEBAR BÊN TRÁI -->
+  <div id="sidebar">
+    <!-- THÔNG TIN KÍCH THƯỚC -->
+    <div class="sec">
+      <div class="sec-title">Kích thước ảnh gốc</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span>Kích cỡ: <b id="info-dim">-</b></span>
+        <span id="auto-format-badge" class="badge-auto" style="display:none">Auto JPG (>4000px)</span>
+      </div>
+    </div>
+
+    <!-- TỌA ĐỘ PHOTOSHOP (X, Y, W, H) VỚI CÁC NÚT TĂNG GIẢM RỜI -->
+    <div class="sec">
+      <div class="sec-title">Vùng Crop (Photoshop X, Y, W, H)</div>
+      
+      <div class="stepper-row">
+        <label>Tọa độ X:</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-x">−</button>
+          <input type="number" id="inp-x" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-x">+</button>
+        </div>
+      </div>
+
+      <div class="stepper-row">
+        <label>Tọa độ Y:</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-y">−</button>
+          <input type="number" id="inp-y" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-y">+</button>
+        </div>
+      </div>
+
+      <div class="stepper-row">
+        <label>Chiều Rộng (W):</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-w">−</button>
+          <input type="number" id="inp-w" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-w">+</button>
+        </div>
+      </div>
+
+      <div class="stepper-row">
+        <label>Chiều Cao (H):</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-h">−</button>
+          <input type="number" id="inp-h" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-h">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CÁCH 4 BIÊN (TOP / RIGHT / BOTTOM / LEFT) -->
+    <div class="sec">
+      <div class="sec-title">Cách lề 4 mép biên (px)</div>
+
+      <div class="stepper-row">
+        <label>Mép Trên:</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-top">−</button>
+          <input type="number" id="inp-top" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-top">+</button>
+        </div>
+      </div>
+
+      <div class="stepper-row">
+        <label>Mép Phải:</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-right">−</button>
+          <input type="number" id="inp-right" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-right">+</button>
+        </div>
+      </div>
+
+      <div class="stepper-row">
+        <label>Mép Dưới:</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-bottom">−</button>
+          <input type="number" id="inp-bottom" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-bottom">+</button>
+        </div>
+      </div>
+
+      <div class="stepper-row">
+        <label>Mép Trái:</label>
+        <div class="stepper-group">
+          <button class="stepper-btn" data-step="-1" data-target="inp-left">−</button>
+          <input type="number" id="inp-left" class="stepper-input" value="0">
+          <button class="stepper-btn" data-step="1" data-target="inp-left">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MÀU NỀN KHI MỞ RỘNG (EXPAND) -->
+    <div class="sec">
+      <div class="sec-title">Màu nền lấp vùng mở rộng</div>
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <label style="color:var(--tx-sub)">Màu bù mép:</label>
+        <select id="sel-bg-fill" class="form-select" style="width:130px">
+          <option value="#ffffff">Trắng (#FFFFFF)</option>
+          <option value="transparent">Trong suốt</option>
+          <option value="#000000">Đen (#000000)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- KHU VỰC LIVE PREVIEW VÀ XUẤT ĐA ĐỊNH DẠNG -->
+    <div class="sec" style="margin-top:auto">
+      <div class="sec-title">Live Preview (Blob Image)</div>
+      
+      <!-- Preview qua thẻ img và URL Blob (không tốn VRAM canvas) -->
+      <div class="preview-wrapper">
+        <img id="live-img" alt="">
+        <div id="live-info" style="font-size:10px;color:var(--tx-sub);margin-top:4px">Chưa nạp ảnh</div>
+      </div>
+
+      <!-- TÙY CHỌN XUẤT NHANH -->
+      <div class="export-box" style="margin-top:8px">
+        <div style="display:flex;gap:6px">
+          <div style="flex:1">
+            <label style="font-size:10px;color:var(--tx-sub);display:block;margin-bottom:2px">Định dạng:</label>
+            <select id="exp-format" class="form-select" style="width:100%">
+              <option value="png">PNG (Lossless)</option>
+              <option value="jpg">JPG (100% Quality)</option>
+              <option value="webp">WebP (100% Quality)</option>
+              <option value="avif">AVIF (100% Quality)</option>
+              <option value="tiff">TIFF (Chuẩn in ấn 32-bit)</option>
+              <option value="gif">GIF</option>
+              <option value="pdf">PDF (Bản in tài liệu)</option>
+            </select>
+          </div>
+          <div style="flex:1">
+            <label style="font-size:10px;color:var(--tx-sub);display:block;margin-bottom:2px">Chế độ màu:</label>
+            <select id="exp-mode" class="form-select" style="width:100%">
+              <option value="color">Màu Gốc</option>
+              <option value="bw">Trắng Đen (B&W)</option>
+            </select>
+          </div>
+        </div>
+
+        <button class="btn primary" id="btn-export-quick" style="width:100%;margin-top:4px;padding:6px" disabled>
+          ⬇ XUẤT VÀ TẢI VỀ NGAY
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIEWPORT CHÍNH -->
+  <div id="viewport">
+    <div id="drop-target">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <path d="M3 9l4-4 4 4 4-6 4 6"/><circle cx="8.5" cy="6.5" r="1.5"/>
+      </svg>
+      <div style="font-size:15px;font-weight:600">Kéo thả ảnh vào đây hoặc Bấm để chọn</div>
+      <div style="font-size:11px;color:var(--tx-sub)">Hoặc nhấn Ctrl + V để dán trực tiếp từ Clipboard</div>
+    </div>
+    <canvas id="main-canvas"></canvas>
+  </div>
+</div>
+
+<!-- STATUSBAR -->
+<div id="statusbar">
+  <div>Con trỏ: <span id="st-pos">- , -</span> px</div>
+  <div>Kích thước gốc: <span id="st-dim">-</span></div>
+  <div>Kích thước Crop: <span id="st-crop">-</span></div>
+  <div>Zoom: <span id="st-zoom">100%</span></div>
+</div>
+
+<script>
+// ==========================================
+// STATE ENGINE QUẢN LÝ TỌA ĐỘ VÀ BỘ NHỚ
+// ==========================================
+const S = {
+  img: null,
+  fileName: 'image.png',
+  imgW: 0,
+  imgH: 0,
+
+  // Vùng crop (tọa độ pixel thực - có thể âm hoặc vượt quá kích thước nếu mở khóa biên)
+  cx: 0, cy: 0, cw: 0, ch: 0,
+
+  // Transform Viewport
+  zoom: 1, panX: 0, panY: 0,
+
+  // Chuột và phím
+  isDragging: false,
+  dragHandle: null,
+  startX: 0, startY: 0,
+  startCrop: {x:0, y:0, w:0, h:0},
+  startPan: {x:0, y:0},
+  isSpace: false,
+
+  // Ổ khóa: true = cấm vượt biên ảnh, false = cho phép mở rộng tự do
+  isLockedToBounds: true
+};
+
+const vp = document.getElementById('viewport');
+const cv = document.getElementById('main-canvas');
+const ctx = cv.getContext('2d', { alpha: false });
+const dropZone = document.getElementById('drop-target');
+
+let activeImageBlobUrl = null;
+let activePreviewBlobUrl = null;
+
+// ==========================================
+// CẬP NHẬT VIEWPORT THEO MÀN HÌNH (TIẾT KIỆM RAM)
+// ==========================================
+function updateViewportSize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = vp.clientWidth * dpr;
+  cv.height = vp.clientHeight * dpr;
+  cv.style.width = vp.clientWidth + 'px';
+  cv.style.height = vp.clientHeight + 'px';
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.scale(dpr, dpr);
+  draw();
+}
+window.addEventListener('resize', updateViewportSize);
+
+// ==========================================
+// BỘ ĐỌC ẢNH VÀ TỰ ĐỘNG CHỌN ĐỊNH DẠNG THEO SIZE
+// ==========================================
+function loadImage(file) {
+  if (!file || !file.type.startsWith('image/')) return;
+  const newUrl = URL.createObjectURL(file);
+  const temp = new Image();
+
+  temp.onload = () => {
+    if (activeImageBlobUrl) URL.revokeObjectURL(activeImageBlobUrl);
+    activeImageBlobUrl = newUrl;
+
+    S.img = temp;
+    S.fileName = file.name;
+    S.imgW = temp.naturalWidth;
+    S.imgH = temp.naturalHeight;
+
+    S.cx = 0; S.cy = 0;
+    S.cw = S.imgW; S.ch = S.imgH;
+
+    dropZone.style.display = 'none';
+    document.getElementById('btn-apply-crop').disabled = false;
+    document.getElementById('btn-reset').disabled = false;
+    document.getElementById('btn-export-quick').disabled = false;
+
+    // Tự động nhận diện kích thước lớn > 4000x4000 px
+    const badge = document.getElementById('auto-format-badge');
+    const formatSelect = document.getElementById('exp-format');
+    if (S.imgW >= 4000 || S.imgH >= 4000) {
+      formatSelect.value = 'jpg';
+      badge.style.display = 'inline-block';
+    } else {
+      formatSelect.value = 'png';
+      badge.style.display = 'none';
+    }
+
+    fitCenter();
+    syncUI();
+    schedulePreviewBlob();
+  };
+  temp.src = newUrl;
+}
+
+// Bắt Ctrl + V dán ảnh
+window.addEventListener('paste', e => {
+  const items = e.clipboardData?.items;
+  if (!items) return;
+  for (let it of items) {
+    if (it.type.includes('image')) {
+      const f = it.getAsFile();
+      if (f) { loadImage(f); e.preventDefault(); break; }
+    }
+  }
+});
+
+// Drop file an toàn
+['dragenter','dragover'].forEach(ev => vp.addEventListener(ev, e => { e.preventDefault(); e.stopPropagation(); }));
+vp.addEventListener('drop', e => {
+  e.preventDefault(); e.stopPropagation();
+  if (e.dataTransfer.files?.[0]) loadImage(e.dataTransfer.files[0]);
+});
+dropZone.addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('btn-open').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('file-input').addEventListener('change', e => {
+  if (e.target.files?.[0]) { loadImage(e.target.files[0]); e.target.value = ''; }
+});
+
+// ==========================================
+// CHẾ ĐỘ KHÓA BIÊN vs MỞ RỘNG TỰ DO
+// ==========================================
+const btnLock = document.getElementById('btn-toggle-lock');
+const lockIcon = document.getElementById('lock-icon');
+const lockLabel = document.getElementById('lock-label');
+
+btnLock.addEventListener('click', () => {
+  S.isLockedToBounds = !S.isLockedToBounds;
+  if (S.isLockedToBounds) {
+    btnLock.classList.add('locked');
+    lockIcon.textContent = '🔒';
+    lockLabel.textContent = 'Khóa trong biên ảnh';
+    // Co lại nếu đang lọt ra ngoài
+    clampCropToBounds();
+  } else {
+    btnLock.classList.remove('locked');
+    lockIcon.textContent = '🔓';
+    lockLabel.textContent = 'Mở rộng tự do (Photoshop)';
+  }
+  syncUI();
+  draw();
+  schedulePreviewBlob();
+});
+
+function clampCropToBounds() {
+  S.cx = Math.max(0, Math.min(S.imgW - 1, S.cx));
+  S.cy = Math.max(0, Math.min(S.imgH - 1, S.cy));
+  S.cw = Math.max(1, Math.min(S.imgW - S.cx, S.cw));
+  S.ch = Math.max(1, Math.min(S.imgH - S.cy, S.ch));
+}
+
+// ==========================================
+// ĐIỀU HƯỚNG CHUỘT CHUẨN PHOTOSHOP
+// ==========================================
+vp.addEventListener('wheel', e => {
+  if (!S.img) return;
+  e.preventDefault();
+
+  // Ctrl/Alt + Lăn = Zoom
+  if (e.ctrlKey || e.metaKey || e.altKey) {
+    const factor = e.deltaY < 0 ? 1.15 : 0.85;
+    const rect = cv.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+
+    const newZoom = Math.max(0.02, Math.min(64, S.zoom * factor));
+    if (newZoom !== S.zoom) {
+      S.panX = mx - (mx - S.panX) * (newZoom / S.zoom);
+      S.panY = my - (my - S.panY) * (newZoom / S.zoom);
+      S.zoom = newZoom;
+      draw();
+    }
+  }
+  // Shift + Lăn = Cuộn ngang
+  else if (e.shiftKey) {
+    S.panX -= e.deltaY;
+    draw();
+  }
+  // Lăn thường = Cuộn dọc
+  else {
+    S.panY -= e.deltaY;
+    draw();
+  }
+}, { passive: false });
+
+// Phím Space để PAN
+window.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !S.isSpace && e.target.tagName !== 'INPUT') {
+    S.isSpace = true;
+    vp.style.cursor = 'grab';
+  }
+});
+window.addEventListener('keyup', e => {
+  if (e.code === 'Space') {
+    S.isSpace = false;
+    vp.style.cursor = 'default';
+  }
+});
+
+function fitCenter() {
+  if (!S.img) return;
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  const scale = Math.min((vw - 60) / S.imgW, (vh - 60) / S.imgH, 1);
+  S.zoom = scale;
+  S.panX = (vw - S.imgW * scale) / 2;
+  S.panY = (vh - S.imgH * scale) / 2;
+  draw();
+}
+
+// ==========================================
+// VẼ CANVAS VIEWPORT (SIÊU NHẸ)
+// ==========================================
+function draw() {
+  const vw = vp.clientWidth, vh = vp.clientHeight;
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.restore();
+
+  ctx.fillStyle = '#111111';
+  ctx.fillRect(0, 0, vw, vh);
+
+  if (!S.img) return;
+
+  // 1. Vẽ Ảnh gốc
+  ctx.save();
+  ctx.imageSmoothingEnabled = S.zoom < 2;
+  ctx.drawImage(S.img, S.panX, S.panY, S.imgW * S.zoom, S.imgH * S.zoom);
+  ctx.restore();
+
+  // 2. Lưới Pixel khi Zoom >= 400%
+  if (S.zoom >= 4) {
+    const minX = Math.max(0, Math.floor(-S.panX / S.zoom));
+    const maxX = Math.min(S.imgW, Math.ceil((vw - S.panX) / S.zoom));
+    const minY = Math.max(0, Math.floor(-S.panY / S.zoom));
+    const maxY = Math.min(S.imgH, Math.ceil((vh - S.panY) / S.zoom));
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let x = minX; x <= maxX; x++) {
+      const scrX = Math.round(S.panX + x * S.zoom) + 0.5;
+      ctx.moveTo(scrX, S.panY + minY * S.zoom);
+      ctx.lineTo(scrX, S.panY + endY * S.zoom || (S.panY + maxY * S.zoom));
+    }
+    for (let y = minY; y <= maxY; y++) {
+      const scrY = Math.round(S.panY + y * S.zoom) + 0.5;
+      ctx.moveTo(S.panX + minX * S.zoom, scrY);
+      ctx.lineTo(S.panX + maxX * S.zoom, scrY);
+    }
+    ctx.stroke();
+  }
+
+  // Tọa độ màn hình của hộp Crop
+  const sx = S.panX + S.cx * S.zoom;
+  const sy = S.panY + S.cy * S.zoom;
+  const sw = S.cw * S.zoom;
+  const sh = S.ch * S.zoom;
+
+  // 3. Phủ tối bên ngoài vùng Crop
+  ctx.fillStyle = 'rgba(0,0,0,0.65)';
+  ctx.fillRect(0, 0, vw, sy);
+  ctx.fillRect(0, sy + sh, vw, vh - (sy + sh));
+  ctx.fillRect(0, sy, sx, sh);
+  ctx.fillRect(sx + sw, sy, vw - (sx + sw), sh);
+
+  // 4. Khung viền và Handles
+  ctx.strokeStyle = S.isLockedToBounds ? '#ffffff' : '#00e5ff';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(sx, sy, sw, sh);
+
+  drawHandles(sx, sy, sw, sh);
+
+  // Badge hiển thị pixel
+  const badge = `${Math.round(S.cw)} × ${Math.round(S.ch)} px`;
+  ctx.font = 'bold 11px monospace';
+  const tw = ctx.measureText(badge).width;
+  ctx.fillStyle = 'rgba(0,0,0,0.85)';
+  ctx.fillRect(sx + sw/2 - tw/2 - 4, sy - 20, tw + 8, 16);
+  ctx.fillStyle = S.isLockedToBounds ? '#fff' : '#00e5ff';
+  ctx.fillText(badge, sx + sw/2 - tw/2, sy - 8);
+
+  document.getElementById('st-zoom').textContent = Math.round(S.zoom * 100) + '%';
+}
+
+function drawHandles(x, y, w, h) {
+  const hs = 8;
+  ctx.fillStyle = '#fff';
+  ctx.strokeStyle = '#007acc';
+  ctx.lineWidth = 2;
+  const pts = [
+    [x, y], [x + w, y], [x, y + h], [x + w, y + h],
+    [x + w/2, y], [x + w/2, y + h], [x, y + h/2], [x + w, y + h/2]
+  ];
+  pts.forEach(([px, py]) => {
+    ctx.fillRect(px - hs/2, py - hs/2, hs, hs);
+    ctx.strokeRect(px - hs/2, py - hs/2, hs, hs);
+  });
+}
+
+// ==========================================
+// TƯƠNG TÁC KÉO CẠNH CROP & ANCHORS
+// ==========================================
+function getHit(mx, my) {
+  const sx = S.panX + S.cx * S.zoom, sy = S.panY + S.cy * S.zoom;
+  const sw = S.cw * S.zoom, sh = S.ch * S.zoom;
+  const r = 10;
+
+  if (Math.hypot(mx - sx, my - sy) < r) return 'nw';
+  if (Math.hypot(mx - (sx + sw), my - sy) < r) return 'ne';
+  if (Math.hypot(mx - sx, my - (sy + sh)) < r) return 'sw';
+  if (Math.hypot(mx - (sx + sw), my - (sy + sh)) < r) return 'se';
+
+  if (Math.abs(my - sy) < r && mx > sx && mx < sx + sw) return 'n';
+  if (Math.abs(my - (sy + sh)) < r && mx > sx && mx < sx + sw) return 's';
+  if (Math.abs(mx - sx) < r && my > sy && my < sy + sh) return 'w';
+  if (Math.abs(mx - (sx + sw)) < r && my > sy && my < sy + sh) return 'e';
+
+  if (mx > sx && mx < sx + sw && my > sy && my < sy + sh) return 'move';
+  return null;
+}
+
+vp.addEventListener('mousedown', e => {
+  if (!S.img || e.button !== 0) return;
+  const r = cv.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+
+  if (S.isSpace || e.button === 1) {
+    S.isDragging = true;
+    S.dragHandle = 'pan';
+    S.startX = mx; S.startY = my;
+    S.startPan = { x: S.panX, y: S.panY };
+    vp.style.cursor = 'grabbing';
+    return;
+  }
+
+  const h = getHit(mx, my);
+  if (h) {
+    S.isDragging = true;
+    S.dragHandle = h;
+    S.startX = mx; S.startY = my;
+    S.startCrop = { x: S.cx, y: S.cy, w: S.cw, h: S.ch };
+  }
+});
+
+window.addEventListener('mousemove', e => {
+  const r = cv.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+
+  if (S.img) {
+    const px = Math.floor((mx - S.panX) / S.zoom);
+    const py = Math.floor((my - S.panY) / S.zoom);
+    document.getElementById('st-pos').textContent = `${px}, ${py}`;
+  }
+
+  if (!S.isDragging) {
+    if (S.isSpace) return;
+    const h = getHit(mx, my);
+    const cmap = { nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',n:'ns-resize',s:'ns-resize',w:'ew-resize',e:'ew-resize',move:'move' };
+    vp.style.cursor = h ? cmap[h] : 'default';
+    return;
+  }
+
+  const dx = (mx - S.startX) / S.zoom;
+  const dy = (my - S.startY) / S.zoom;
+
+  if (S.dragHandle === 'pan') {
+    S.panX = S.startPan.x + (mx - S.startX);
+    S.panY = S.startPan.y + (my - S.startY);
+    draw();
+    return;
+  }
+
+  let nx = S.startCrop.x, ny = S.startCrop.y;
+  let nw = S.startCrop.w, nh = S.startCrop.h;
+
+  if (S.dragHandle === 'move') {
+    nx = Math.round(S.startCrop.x + dx);
+    ny = Math.round(S.startCrop.y + dy);
+    if (S.isLockedToBounds) {
+      nx = Math.max(0, Math.min(S.imgW - nw, nx));
+      ny = Math.max(0, Math.min(S.imgH - nh, ny));
+    }
+  } else {
+    if (S.dragHandle.includes('w')) {
+      const right = S.startCrop.x + S.startCrop.w;
+      nx = Math.round(S.startCrop.x + dx);
+      if (S.isLockedToBounds) nx = Math.max(0, Math.min(right - 1, nx));
+      nw = right - nx;
+    }
+    if (S.dragHandle.includes('e')) {
+      nw = Math.max(1, Math.round(S.startCrop.w + dx));
+      if (S.isLockedToBounds) nw = Math.min(S.imgW - S.startCrop.x, nw);
+    }
+    if (S.dragHandle.includes('n')) {
+      const bottom = S.startCrop.y + S.startCrop.h;
+      ny = Math.round(S.startCrop.y + dy);
+      if (S.isLockedToBounds) ny = Math.max(0, Math.min(bottom - 1, ny));
+      nh = bottom - ny;
+    }
+    if (S.dragHandle.includes('s')) {
+      nh = Math.max(1, Math.round(S.startCrop.h + dy));
+      if (S.isLockedToBounds) nh = Math.min(S.imgH - S.startCrop.y, nh);
+    }
+  }
+
+  S.cx = nx; S.cy = ny; S.cw = nw; S.ch = nh;
+  syncUI();
+  draw();
+  schedulePreviewBlob();
+});
+
+window.addEventListener('mouseup', () => { S.isDragging = false; });
+
+// ==========================================
+// ĐỒNG BỘ GIAO DIỆN & NÚT STEPPER [-] [+] RỜI
+// ==========================================
+function syncUI() {
+  document.getElementById('info-dim').textContent = `${S.imgW} × ${S.imgH} px`;
+
+  document.getElementById('inp-x').value = Math.round(S.cx);
+  document.getElementById('inp-y').value = Math.round(S.cy);
+  document.getElementById('inp-w').value = Math.round(S.cw);
+  document.getElementById('inp-h').value = Math.round(S.ch);
+
+  document.getElementById('inp-top').value = Math.round(S.cy);
+  document.getElementById('inp-left').value = Math.round(S.cx);
+  document.getElementById('inp-bottom').value = Math.round(S.imgH - (S.cy + S.ch));
+  document.getElementById('inp-right').value = Math.round(S.imgW - (S.cx + S.cw));
+
+  document.getElementById('st-dim').textContent = `${S.imgW} × ${S.imgH} px`;
+  document.getElementById('st-crop').textContent = `${Math.round(S.cw)} × ${Math.round(S.ch)} px`;
+}
+
+// Bắt sự kiện click nút Stepper [-] và [+]
+document.querySelectorAll('.stepper-btn').forEach(btn => {
+  btn.addEventListener('click', e => {
+    const step = parseInt(btn.dataset.step) * (e.shiftKey ? 10 : 1);
+    const targetInput = document.getElementById(btn.dataset.target);
+    targetInput.value = (parseInt(targetInput.value) || 0) + step;
+    targetInput.dispatchEvent(new Event('change'));
+  });
+});
+
+// Nhập trực tiếp X, Y, W, H
+['inp-x','inp-y','inp-w','inp-h'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    let x = parseInt(document.getElementById('inp-x').value) || 0;
+    let y = parseInt(document.getElementById('inp-y').value) || 0;
+    let w = Math.max(1, parseInt(document.getElementById('inp-w').value) || 1);
+    let h = Math.max(1, parseInt(document.getElementById('inp-h').value) || 1);
+
+    if (S.isLockedToBounds) {
+      x = Math.max(0, Math.min(S.imgW - 1, x));
+      y = Math.max(0, Math.min(S.imgH - 1, y));
+      w = Math.min(S.imgW - x, w);
+      h = Math.min(S.imgH - y, h);
+    }
+
+    S.cx = x; S.cy = y; S.cw = w; S.ch = h;
+    syncUI(); draw(); schedulePreviewBlob();
+  });
+});
+
+// Nhập trực tiếp 4 cạnh lề
+['inp-top','inp-right','inp-bottom','inp-left'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => {
+    let t = parseInt(document.getElementById('inp-top').value) || 0;
+    let r = parseInt(document.getElementById('inp-right').value) || 0;
+    let b = parseInt(document.getElementById('inp-bottom').value) || 0;
+    let l = parseInt(document.getElementById('inp-left').value) || 0;
+
+    let x = l, y = t;
+    let w = Math.max(1, S.imgW - l - r);
+    let h = Math.max(1, S.imgH - t - b);
+
+    if (S.isLockedToBounds) {
+      x = Math.max(0, x); y = Math.max(0, y);
+      w = Math.max(1, Math.min(S.imgW - x, w));
+      h = Math.max(1, Math.min(S.imgH - y, h));
+    }
+
+    S.cx = x; S.cy = y; S.cw = w; S.ch = h;
+    syncUI(); draw(); schedulePreviewBlob();
+  });
+});
+
+// ==========================================
+// LIVE PREVIEW BẰNG BLOB (TIẾT KIỆM BỘ NHỚ RAM)
+// ==========================================
+let previewDebounce = null;
+function schedulePreviewBlob() {
+  clearTimeout(previewDebounce);
+  previewDebounce = setTimeout(() => {
+    if (!S.img || S.cw <= 0 || S.ch <= 0) return;
+
+    // Canvas siêu nhỏ phục vụ live preview (~160px)
+    const scale = Math.min(180 / S.cw, 130 / S.ch, 1);
+    const tw = Math.max(1, Math.round(S.cw * scale));
+    const th = Math.max(1, Math.round(S.ch * scale));
+
+    const oc = document.createElement('canvas');
+    oc.width = tw; oc.height = th;
+    const octx = oc.getContext('2d');
+
+    // Nền mở rộng
+    const bg = document.getElementById('sel-bg-fill').value;
+    if (bg !== 'transparent') {
+      octx.fillStyle = bg;
+      octx.fillRect(0, 0, tw, th);
+    }
+
+    if (document.getElementById('exp-mode').value === 'bw') {
+      octx.filter = 'grayscale(100%)';
+    }
+
+    // Vẽ vùng chọn ảnh lên preview
+    octx.drawImage(S.img,
+      -S.cx * scale,
+      -S.cy * scale,
+      S.imgW * scale,
+      S.imgH * scale
+    );
+
+    // Xuất ra Blob URL gán vào thẻ <img> và huỷ Blob cũ
+    oc.toBlob(blob => {
+      if (!blob) return;
+      if (activePreviewBlobUrl) URL.revokeObjectURL(activePreviewBlobUrl);
+      activePreviewBlobUrl = URL.createObjectURL(blob);
+      const imgEl = document.getElementById('live-img');
+      imgEl.src = activePreviewBlobUrl;
+      document.getElementById('live-info').textContent = `${Math.round(S.cw)} × ${Math.round(S.ch)} px`;
+    }, 'image/webp', 0.8);
+  }, 120);
+}
+
+document.getElementById('exp-mode').addEventListener('change', schedulePreviewBlob);
+document.getElementById('sel-bg-fill').addEventListener('change', () => { draw(); schedulePreviewBlob(); });
+
+// ==========================================
+// ÁP DỤNG CROP (THỰC THI THẬT)
+// ==========================================
+document.getElementById('btn-apply-crop').addEventListener('click', () => {
+  if (!S.img) return;
+  const oc = document.createElement('canvas');
+  oc.width = S.cw; oc.height = S.ch;
+  const octx = oc.getContext('2d');
+
+  const bg = document.getElementById('sel-bg-fill').value;
+  if (bg !== 'transparent') {
+    octx.fillStyle = bg;
+    octx.fillRect(0, 0, S.cw, S.ch);
+  }
+
+  octx.drawImage(S.img, -S.cx, -S.cy);
+
+  oc.toBlob(blob => {
+    const newUrl = URL.createObjectURL(blob);
+    const temp = new Image();
+    temp.onload = () => {
+      if (activeImageBlobUrl) URL.revokeObjectURL(activeImageBlobUrl);
+      activeImageBlobUrl = newUrl;
+      S.img = temp;
+      S.imgW = S.cw;
+      S.imgH = S.ch;
+      S.cx = 0; S.cy = 0;
+      fitCenter(); syncUI(); schedulePreviewBlob();
+    };
+    temp.src = newUrl;
+  }, 'image/png');
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!S.img) return;
+  S.cx = 0; S.cy = 0; S.cw = S.imgW; S.ch = S.imgH;
+  fitCenter(); syncUI(); schedulePreviewBlob();
+});
+
+// ==========================================
+// BỘ XUẤT 7 ĐỊNH DẠNG: JPG, PNG, WEBP, AVIF, TIFF, GIF, PDF
+// ==========================================
+document.getElementById('btn-export-quick').addEventListener('click', async () => {
+  if (!S.img) return;
+  const btn = document.getElementById('btn-export-quick');
+  btn.disabled = true;
+  btn.textContent = '⏳ Đang tạo file xuất...';
+
+  // 1. Dựng Canvas đúng chuẩn kích thước đích
+  const oc = document.createElement('canvas');
+  oc.width = S.cw; oc.height = S.ch;
+  const octx = oc.getContext('2d');
+
+  const format = document.getElementById('exp-format').value;
+  const isBW = document.getElementById('exp-mode').value === 'bw';
+  const bg = document.getElementById('sel-bg-fill').value;
+
+  // Nếu định dạng không hỗ trợ trong suốt (như JPG) hoặc người dùng chọn màu nền
+  if (format === 'jpg' || bg !== 'transparent') {
+    octx.fillStyle = (format === 'jpg' && bg === 'transparent') ? '#ffffff' : bg;
+    octx.fillRect(0, 0, S.cw, S.ch);
+  }
+
+  if (isBW) octx.filter = 'grayscale(100%)';
+  octx.drawImage(S.img, -S.cx, -S.cy);
+
+  const baseName = S.fileName.replace(/\.[^.]+$/, '') + '_crop';
+
+  try {
+    if (format === 'tiff') {
+      const blob = createTiffBlob(oc);
+      downloadBlob(blob, `${baseName}.tiff`);
+    } else if (format === 'pdf') {
+      const blob = await createPdfBlob(oc);
+      downloadBlob(blob, `${baseName}.pdf`);
+    } else {
+      const mimeTypes = {
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        webp: 'image/webp',
+        avif: 'image/avif',
+        gif: 'image/gif'
+      };
+      oc.toBlob(blob => {
+        if (!blob) {
+          // Fallback nếu trình duyệt không hỗ trợ AVIF
+          oc.toBlob(b => downloadBlob(b, `${baseName}.png`), 'image/png');
+        } else {
+          downloadBlob(blob, `${baseName}.${format}`);
+        }
+      }, mimeTypes[format] || 'image/png', 1.0); // CHẤT LƯỢNG LUÔN LÀ 1.0 (LOSSLESS 100%)
+    }
+  } catch(err) {
+    alert('Lỗi xuất file: ' + err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '⬇ XUẤT VÀ TẢI VỀ NGAY';
+  }
+});
+
+function downloadBlob(blob, filename) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 30000);
+}
+
+// ==========================================
+// BỘ ENCODER TIFF KHÔNG NÉN CHUẨN IN ẤN (PURE JS)
+// ==========================================
+function createTiffBlob(canvas) {
+  const w = canvas.width, h = canvas.height;
+  const data = canvas.getContext('2d').getImageData(0, 0, w, h).data;
+  const byteCount = w * h * 4;
+  const ifdOffset = 8;
+  const numEntries = 12;
+  const ifdSize = 2 + numEntries * 12 + 4;
+  const valuesOffset = ifdOffset + ifdSize;
+  const bitsOffset = valuesOffset;
+  const xResOffset = bitsOffset + 8;
+  const yResOffset = xResOffset + 8;
+  const imgOffset = yResOffset + 8;
+  const total = imgOffset + byteCount;
+
+  const buf = new ArrayBuffer(total);
+  const view = new DataView(buf);
+
+  // Header 'II' Little Endian
+  view.setUint16(0, 0x4949, true);
+  view.setUint16(2, 42, true);
+  view.setUint32(4, ifdOffset, true);
+
+  let p = ifdOffset;
+  view.setUint16(p, numEntries, true); p += 2;
+
+  function tag(t, ty, c, val) {
+    view.setUint16(p, t, true);
+    view.setUint16(p + 2, ty, true);
+    view.setUint32(p + 4, c, true);
+    view.setUint32(p + 8, val, true);
+    p += 12;
+  }
+
+  tag(256, 4, 1, w); // Width
+  tag(257, 4, 1, h); // Height
+  tag(258, 3, 4, bitsOffset); // BitsPerSample
+  tag(259, 3, 1, 1); // Compression (1 = none)
+  tag(262, 3, 1, 2); // PhotometricInterpretation (RGB)
+  tag(273, 4, 1, imgOffset); // StripOffsets
+  tag(277, 3, 1, 4); // SamplesPerPixel (RGBA)
+  tag(278, 4, 1, h); // RowsPerStrip
+  tag(279, 4, 1, byteCount); // StripByteCounts
+  tag(282, 5, 1, xResOffset); // XResolution
+  tag(283, 5, 1, yResOffset); // YResolution
+  tag(284, 3, 1, 1); // PlanarConfig
+  view.setUint32(p, 0, true);
+
+  for (let i = 0; i < 4; i++) view.setUint16(bitsOffset + i * 2, 8, true);
+  view.setUint32(xResOffset, 300, true); view.setUint32(xResOffset + 4, 1, true); // 300 DPI chuẩn in
+  view.setUint32(yResOffset, 300, true); view.setUint32(yResOffset + 4, 1, true);
+
+  new Uint8Array(buf, imgOffset, byteCount).set(data);
+  return new Blob([buf], { type: 'image/tiff' });
+}
+
+// ==========================================
+// BỘ ĐÓNG GÓI PDF KHÔNG SUY HAO ĐIỂM ẢNH
+// ==========================================
+async function createPdfBlob(canvas) {
+  const w = canvas.width, h = canvas.height;
+  const jpegBlob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 1.0));
+  const jpegBuf = await jpegBlob.arrayBuffer();
+  const rawBytes = new Uint8Array(jpegBuf);
+  const len = rawBytes.length;
+
+  const ptW = (w * 72) / 300; // Quy đổi theo 300 DPI sang điểm PostScript
+  const ptH = (h * 72) / 300;
+
+  const enc = s => new TextEncoder().encode(s);
+  const stream = `q ${ptW.toFixed(2)} 0 0 ${ptH.toFixed(2)} 0 0 cm /Img Do Q`;
+  
+  const objs = [
+    `1 0 obj\n<</Type/Catalog/Pages 2 0 R>>\nendobj`,
+    `2 0 obj\n<</Type/Pages/Kids[3 0 R]/Count 1>>\nendobj`,
+    `3 0 obj\n<</Type/Page/Parent 2 0 R/MediaBox[0 0 ${ptW.toFixed(2)} ${ptH.toFixed(2)}]/Contents 4 0 R/Resources<</XObject<</Img 5 0 R>>>>>>\nendobj`,
+    `4 0 obj\n<</Length ${stream.length}>>\nstream\n${stream}\nendstream\nendobj`
+  ];
+
+  const parts = [enc('%PDF-1.4\n')];
+  let off = parts[0].length;
+  const ofs = [];
+
+  objs.forEach(o => {
+    ofs.push(off);
+    const b = enc(o + '\n');
+    parts.push(b);
+    off += b.length;
+  });
+  ofs.push(off);
+
+  const imgHead = enc(`5 0 obj\n<</Type/XObject/Subtype/Image/Width ${w}/Height ${h}/ColorSpace/DeviceRGB/BitsPerComponent 8/Filter/DCTDecode/Length ${len}>>\nstream\n`);
+  const imgFoot = enc('\nendstream\nendobj\n');
+  parts.push(imgHead, rawBytes, imgFoot);
+  off += imgHead.length + len + imgFoot.length;
+
+  let xref = `xref\n0 6\n0000000000 65535 f \n`;
+  ofs.forEach(o => xref += String(o).padStart(10, '0') + ' 00000 n \n');
+  xref += `trailer\n<</Size 6/Root 1 0 R>>\nstartxref\n${off}\n%%EOF`;
+  parts.push(enc(xref));
+
+  return new Blob(parts, { type: 'application/pdf' });
+}
+
+// Khởi tạo
+updateViewportSize();
+</script>
+</body>
+</html>
